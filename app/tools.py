@@ -52,56 +52,28 @@ _sandbox_client: agentplatform.Client | None = None
 _cached_template_name: str | None = None
 _cached_engine_name: str | None = None
 
-# Lightweight `gcloud logging read` shim for DEFAULT_CONTAINER_CATEGORY_SHELL_SANDBOX
-# (which provides Python 3.11 in /opt/venv/bin/python3 without the 500MB Cloud SDK).
-_GCLOUD_SHIM_SCRIPT = """#!/opt/venv/bin/python3
-import argparse, datetime, json, os, re, sys, urllib.error, urllib.request
-
-def main():
-    args = sys.argv[1:]
-    if len(args) < 2 or args[0] != "logging" or args[1] != "read":
-        sys.stderr.write("Supported in sandbox: gcloud logging read [FILTER] [--project=P] [--limit=N] [--freshness=DURATION] [--order=desc|asc] [--format=json]\\n")
-        sys.exit(2)
-    p = argparse.ArgumentParser(prog="gcloud logging read")
-    p.add_argument("log_filter", nargs="?", default="")
-    p.add_argument("--project", default=os.environ.get("CLOUDSDK_CORE_PROJECT", ""))
-    p.add_argument("--limit", type=int, default=50)
-    p.add_argument("--freshness", default="")
-    p.add_argument("--order", default="desc")
-    p.add_argument("--format", default="json")
-    ns, _ = p.parse_known_args(args[2:])
-    flt = ns.log_filter.strip()
-    if ns.freshness:
-        m = re.fullmatch(r"(\\d+)([smhd])", ns.freshness.strip())
-        if m:
-            val, unit = int(m.group(1)), m.group(2)
-            delta = {"s": datetime.timedelta(seconds=val), "m": datetime.timedelta(minutes=val), "h": datetime.timedelta(hours=val), "d": datetime.timedelta(days=val)}[unit]
-            ts = (datetime.datetime.now(datetime.timezone.utc) - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
-            flt = f'({flt}) AND timestamp>="{ts}"' if flt else f'timestamp>="{ts}"'
-    body = {
-        "resourceNames": [f"projects/{ns.project}"],
-        "pageSize": min(ns.limit, 1000),
-        "orderBy": f"timestamp {ns.order}",
-    }
-    if flt:
-        body["filter"] = flt
-    token = os.environ["CLOUDSDK_AUTH_ACCESS_TOKEN"]
-    req = urllib.request.Request(
-        "https://logging.googleapis.com/v2/entries:list",
-        data=json.dumps(body).encode(),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req) as resp:
-            entries = json.loads(resp.read().decode()).get("entries", [])[:ns.limit]
-            print(json.dumps(entries, indent=2, ensure_ascii=False))
-    except urllib.error.HTTPError as e:
-        sys.stderr.write(e.read().decode() + "\\n")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
-"""
+# Bootstrap command that streams and extracts the official Google Cloud CLI
+# into `/var/tmp/google-cloud-sdk` (disk-backed overlayfs, avoiding `/tmp` tmpfs
+# memory limits) on the first execution in a GEAP Shell Sandbox session.
+_GCLOUD_TARBALL_URL = (
+    "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/"
+    "google-cloud-cli-linux-x86_64.tar.gz"
+)
+_GCLOUD_BOOTSTRAP_CMD = (
+    "if [ ! -x /var/tmp/google-cloud-sdk/bin/gcloud ]; then\n"
+    "  /opt/venv/bin/python3 -c "
+    f"'import shutil, sys, urllib.request; resp = urllib.request.urlopen(\"{_GCLOUD_TARBALL_URL}\"); "
+    "shutil.copyfileobj(resp, sys.stdout.buffer)' | "
+    "tar -xz -C /var/tmp "
+    "--exclude='google-cloud-sdk/platform/bundledpythonunix' "
+    "--exclude='google-cloud-sdk/platform/gsutil' "
+    "--exclude='google-cloud-sdk/platform/bq'\n"
+    "fi\n"
+    "export CLOUDSDK_PYTHON=/opt/venv/bin/python3\n"
+    "export CLOUDSDK_CONFIG=/tmp/.config/gcloud\n"
+    "export CLOUDSDK_CORE_DISABLE_PROMPTS=1\n"
+    'export PATH="/var/tmp/google-cloud-sdk/bin:$PATH"\n'
+)
 
 
 def _get_sandbox_client() -> agentplatform.Client:
@@ -207,12 +179,7 @@ def run_in_sandbox(command: str, tool_context: ToolContext) -> dict[str, Any]:
 
     token = _get_access_token()
     full_cmd = (
-        "if [ ! -x /tmp/bin/gcloud ]; then "
-        "mkdir -p /tmp/bin && cat <<'GCLOUD_EOF' > /tmp/bin/gcloud && chmod +x /tmp/bin/gcloud\n"
-        f"{_GCLOUD_SHIM_SCRIPT}"
-        "GCLOUD_EOF\n"
-        "fi\n"
-        'export PATH="/tmp/bin:$PATH"\n'
+        f"{_GCLOUD_BOOTSTRAP_CMD}"
         f"export CLOUDSDK_AUTH_ACCESS_TOKEN={shlex.quote(token)}\n"
         f"export CLOUDSDK_CORE_PROJECT={shlex.quote(PROJECT_ID)}\n"
         f"{command}"

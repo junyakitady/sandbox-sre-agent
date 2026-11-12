@@ -1,29 +1,44 @@
 {
   "eval_cases": [
     {
-      "eval_case_id": "greeting",
+      "eval_case_id": "sre_capabilities_and_scope",
       "prompt": {
         "role": "user",
-        "parts": [{"text": "Hello, what can you help me with?"}]
-      }
-    },
-    {
-      "eval_case_id": "weather_query",
-      "prompt": {
-        "role": "user",
-        "parts": [{"text": "What's the weather like in San Francisco?"}]
-      }
-    },
-    {
-      "eval_case_id": "capital_lookup",
-      "prompt": {
-        "role": "user",
-        "parts": [{"text": "What is the capital of France?"}]
+        "parts": [
+          {
+            "text": "あなたが対応できるSRE調査の範囲と、利用可能なツール・スキルについて簡潔に教えてください。"
+          }
+        ]
       },
       "reference": {
         "response": {
           "role": "model",
-          "parts": [{"text": "The capital of France is Paris."}]
+          "parts": [
+            {
+              "text": "Google Cloud プロジェクトを対象に（プロジェクト指定がない場合は確認の上）、Cloud Logging から観測可能なシグナルに基づく初期トリアージ、GEAP Shell Sandbox 内の gcloud logging read と Python を用いた段階的ログ調査・時系列分析、Google Developer Knowledge MCP を用いた公式ドキュメント裏付け、Generic Mitigations プレイブックに基づくリスク評価付きの緩和策提案、および Blameless Postmortem の作成に対応しています。"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eval_case_id": "cloud_run_500_mitigation_guidance",
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "Cloud Run サービス api-service (us-central1) で直近デプロイしたリビジョン api-service-00005-xyz から HTTP 500 エラーが急増し、直前の api-service-00004-abc ではエラーが0件であることがログから判明しています。ログの追加取得は不要ですので、緩和策プレイブックに基づき、リスク評価付きの推奨緩和コマンドと適用後の確認方法を提示してください。"
+          }
+        ]
+      },
+      "reference": {
+        "response": {
+          "role": "model",
+          "parts": [
+            {
+              "text": "直前の正常リビジョン api-service-00004-abc へトラフィックを100%切り戻す Rollback（gcloud run services update-traffic api-service --to-revisions=api-service-00004-abc=100 --region=us-central1 --project=llm20260121）を推奨します。リスク評価（🟢 LOW〜🟡 MEDIUM、DBスキーマ等の互換性確認）と、適用後に Cloud Logging でエラー収束を確認するクエリを提示します。"
+            }
+          ]
         }
       }
     }
