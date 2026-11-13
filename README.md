@@ -5,7 +5,7 @@ Google の SRE ベストプラクティスに基づき、**GEAP Shell Sandbox (`
 ## アーキテクチャ概要
 
 - **Root Agent (`app/agent.py`)**:
-  - `gemini-4-argon` モデルを採用。
+  - `gemini-4-hydrogen` モデルを採用。
   - 対象 Google Cloud プロジェクト ID が未指定の場合は調査前にユーザーへ確認。
   - Cloud Logging から観測可能なシグナル（エラー傾向・例外・リソース枯渇イベント・監査ログ上の変更履歴・HTTP レイテンシ）に基づく初期トリアージを実施（Cloud Monitoring メトリクスでしか分からない CPU/メモリ使用率や全体 QPS は推測で断定せず明確に区別）。
   - 仮説駆動の根本原因分析（RCA）に確信度（`Confidence Level: High / Medium / Low`）と公式ドキュメント URL を付与し、リスク評価付きの緩和策提案および Blameless Postmortem 作成を実施。

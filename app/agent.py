@@ -66,7 +66,7 @@ sre_skill_toolset = SkillToolset(
 root_agent = Agent(
     name="sre_agent",
     model=Gemini(
-        model="gemini-4-argon",
+        model="gemini-4-hydrogen",
         retry_options=types.HttpRetryOptions(),
     ),
     instruction=SRE_INSTRUCTION,

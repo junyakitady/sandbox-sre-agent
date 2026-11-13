@@ -1,5 +1,5 @@
 name: "sre-agent"
-acli_version: "1.13.0"
+acli_version: "1.14.0"
 agent_directory: "app"
 region: 'us-central1'
 base_template: "adk_python"

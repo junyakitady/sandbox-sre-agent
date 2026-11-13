@@ -26,10 +26,10 @@ from app.tools import run_in_sandbox
 
 
 def test_agent_configuration() -> None:
-    """Verifies that root_agent uses gemini-4-argon with retry_options and registers tools and skills."""
+    """Verifies that root_agent uses gemini-4-hydrogen with retry_options and registers tools and skills."""
     assert root_agent.name == "sre_agent"
     assert isinstance(root_agent.model, Gemini)
-    assert root_agent.model.model == "gemini-4-argon"
+    assert root_agent.model.model == "gemini-4-hydrogen"
     assert root_agent.model.retry_options is not None
     assert len(root_agent.tools) == 3
     assert isinstance(sre_skill_toolset, SkillToolset)
